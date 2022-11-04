@@ -47,7 +47,7 @@ func main() {
 		fmt.Println()
 	})
 
-	s.Every(10).Second().Do(func() {
+	s.Every(5).Minutes().StartAt(time.Now().Add(time.Minute * 10)).Do(func() {
 		fmt.Println("---------------start notion api call---------------")
 		if err := callNotion(taskRepository); err != nil {
 			fmt.Println(err.Error())

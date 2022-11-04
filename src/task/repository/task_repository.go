@@ -52,6 +52,10 @@ func (t *TaskRepository) InsertFromNotion(res *notionapi.DatabaseQueryResponse) 
 				fmt.Println("Can't send because of user email")
 				continue
 			}
+			calendarId := "primary"
+			if taskDb.Creator == email2 {
+				calendarId = email2
+			}
 			tx := t.DB.Begin()
 			if taskFind.Id == "" {
 				if !(taskDb.AddCalendar && taskDb.PlannedStart != nil) {
@@ -69,7 +73,7 @@ func (t *TaskRepository) InsertFromNotion(res *notionapi.DatabaseQueryResponse) 
 					continue
 				}
 				calendarEvent.Reminders = &calendar.EventReminders{UseDefault: true}
-				evenCon, err := calendarCon.Events.Insert("primary", calendarEvent).Do()
+				evenCon, err := calendarCon.Events.Insert(calendarId, calendarEvent).Do()
 				if err != nil {
 					fmt.Println("Error inserting to calendar", err.Error())
 					continue
@@ -94,7 +98,7 @@ func (t *TaskRepository) InsertFromNotion(res *notionapi.DatabaseQueryResponse) 
 						fmt.Println(dba.Error.Error())
 						continue
 					}
-					err := calendarCon.Events.Delete("primary", taskFind.CalendarID).Do()
+					err := calendarCon.Events.Delete(calendarId, taskFind.CalendarID).Do()
 					if err != nil {
 						fmt.Println("Error deleting calendar", err.Error())
 						tx.Rollback()
@@ -104,7 +108,7 @@ func (t *TaskRepository) InsertFromNotion(res *notionapi.DatabaseQueryResponse) 
 					continue
 				}
 				if taskDb.Status == "Canceled" || taskDb.Status == "Hold" {
-					err := calendarCon.Events.Delete("primary", taskFind.CalendarID).Do()
+					err := calendarCon.Events.Delete(calendarId, taskFind.CalendarID).Do()
 					if err != nil {
 						fmt.Println("Error deleting calendar", err.Error())
 						tx.Rollback()
@@ -124,7 +128,7 @@ func (t *TaskRepository) InsertFromNotion(res *notionapi.DatabaseQueryResponse) 
 					return dba.Error
 				}
 
-				_, err := calendarCon.Events.Update("primary", taskFind.CalendarID, calendarEvent).Do()
+				_, err := calendarCon.Events.Update(calendarId, taskFind.CalendarID, calendarEvent).Do()
 				if err != nil {
 					fmt.Println("Error updating to calendar", err.Error())
 					tx.Rollback()
@@ -167,6 +171,14 @@ func (t *TaskRepository) InsertFromGoogleCalendar(event *calendar.Events) error 
 				fmt.Println("Not creating event because data has been deleted")
 				continue
 			}
+			status := notionapi.SelectProperty{
+				Select: notionapi.Option{
+					Name: "To Do",
+				},
+			}
+
+			taskProperties["Status"] = status
+			dbTask.Status = "To Do"
 			if dbTask.Due == nil && dbTask.PlannedEnd != nil {
 				due := notionapi.DateProperty{
 					Date: &notionapi.DateObject{
